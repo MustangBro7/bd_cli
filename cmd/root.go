@@ -7,6 +7,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
+	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"strconv"
@@ -22,6 +25,8 @@ type Command struct {
 	Command  string `json:"command"`
 	Filename string `json:"filename"`
 }
+
+var pwd = "/"
 
 var rootCmd = &cobra.Command{
 	Use:   "panda",
@@ -278,7 +283,7 @@ var cdCmd = &cobra.Command{
 		}
 	},
 }
-var pwd = "/"
+
 var uploadCmd = &cobra.Command{
 	Use:   "upload [filename]",
 	Short: "upload file",
@@ -319,18 +324,74 @@ var uploadCmd = &cobra.Command{
 		}
 		req1.Header.Set("Content-Type", "application/json")
 		client := &http.Client{}
-		resp, err := client.Do(req1)
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("Error making request:", err)
+			return
+		}
+		client1 := &http.Client{}
+		resp1, err := client1.Do(req1)
 		if err != nil {
 			fmt.Println("Error making request:", err)
 			return
 		}
 		defer resp.Body.Close()
+		defer resp1.Body.Close()
 
 		if resp.StatusCode == http.StatusOK {
 			fmt.Println("Request successful", http.StatusOK)
 		} else {
 			fmt.Println("Request failed with status code:", resp.StatusCode)
 		}
+
+		url1 := "http://localhost:8000"
+
+		// Open the file
+		file, err := os.Open("./test.txt")
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		defer file.Close()
+
+		// Create a buffer to store the file content
+		var buffer bytes.Buffer
+		writer := multipart.NewWriter(&buffer)
+
+		// Create a form file field and write the file content
+		fileField, err := writer.CreateFormFile("file", "example.txt")
+		if err != nil {
+			fmt.Println("Error creating form file:", err)
+			return
+		}
+		_, err = io.Copy(fileField, file)
+		if err != nil {
+			fmt.Println("Error copying file content:", err)
+			return
+		}
+
+		// Close the multipart writer to finalize the request
+		writer.Close()
+
+		// Create a POST request with the multipart form data
+		req2, err := http.NewRequest("POST", url1, &buffer)
+		if err != nil {
+			fmt.Println("Error creating request:", err)
+			return
+		}
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+
+		// Send the request
+		client2 := &http.Client{}
+		resp2, err := client2.Do(req2)
+		if err != nil {
+			fmt.Println("Error making request:", err)
+			return
+		}
+		defer resp2.Body.Close()
+
+		// Process the response as needed
+		fmt.Println("Response status code:", resp.StatusCode)
 	},
 }
 

@@ -10,4 +10,7 @@ to run the server:
 
     cd server
     go run main.go
-    
+
+to run the file server:
+    cd server
+    go run server2.go
